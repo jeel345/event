@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin | CATCH UP</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="/css/style.css" rel="stylesheet">
+<link rel="icon" type="image/png" href="/img/favicon.png"><meta name="theme-color" content="#0a0508">
+<script src="/js/splash.js"></script></head><body>
+<div class="d-flex admin-layout">
+  <aside class="admin-side p-3">
+    <a class="cu-brand mb-4" href="/"><img src="/img/mark.png" alt="">CATCH <span>UP</span></a>
+    <nav class="side vstack gap-1" id="menu">
+      <a data-v="dash" class="active"><i class="bi bi-grid"></i>Dashboard</a>
+      <a data-v="events"><i class="bi bi-calendar-event"></i>Events</a>
+      <a data-v="regs"><i class="bi bi-people"></i>Participants</a>
+      <a data-v="att"><i class="bi bi-qr-code-scan"></i>Attendance</a>
+      <a onclick="API.logout()"><i class="bi bi-box-arrow-right"></i>Logout</a>
+    </nav>
+  </aside>
+  <main class="flex-grow-1 p-3 p-lg-4" style="min-width:0">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h4 class="fw-bold mb-0" id="vt">Dashboard</h4><div class="d-flex align-items-center gap-3"><span id="bellslot"></span><span class="small muted" id="who"></span></div></div>
+
+    <!-- Dashboard -->
+    <section id="v-dash">
+      <div class="row g-3 mb-3" id="kpis"></div>
+      <div class="row g-3">
+        <div class="col-lg-7"><div class="cu-card p-3"><div class="d-flex justify-content-between"><b>Registrations vs attendance</b>
+          <span class="small muted"><span style="color:var(--red)">&#9632;</span> Registrations <span style="color:#8b5cf6">&#9632;</span> Attendance</span></div><div class="bars" id="chart"></div></div></div>
+        <div class="col-lg-5"><div class="cu-card p-3"><b>Recent activity</b><div class="vstack gap-3 mt-3" id="recent"></div></div></div>
+      </div>
+      <div class="row g-3 mt-0">
+        <div class="col-lg-7"><div class="cu-card p-3 h-100"><b><i class="bi bi-stars text-danger me-2"></i>Suggestions for you</b><div class="small muted">Worked out from student interests and registrations</div><div class="vstack gap-3 mt-3" id="tips"></div></div></div>
+        <div class="col-lg-5"><div class="cu-card p-3 h-100"><b>What students are into</b><div class="small muted" id="topsub"></div><div class="vstack gap-2 mt-3" id="tops"></div></div></div>
+      </div>
+    </section>
+
+    <!-- Events -->
+    <section id="v-events" class="d-none">
+      <div class="d-flex flex-wrap gap-2 justify-content-between mb-3">
+        <input id="es" class="form-control" style="max-width:280px" placeholder="Search events">
+        <button class="btn btn-cu" onclick="openForm()"><i class="bi bi-plus-lg me-1"></i>Create event</button></div>
+      <div class="cu-card p-2 table-responsive"><table class="table table-hover align-middle mb-0">
+        <thead><tr><th>Event name</th><th>Date and time</th><th>Registered</th><th>Status</th><th class="text-end">Action</th></tr></thead><tbody id="et"></tbody></table></div>
+    </section>
+
+    <!-- Registrations -->
+    <section id="v-regs" class="d-none">
+      <div class="d-flex flex-wrap gap-2 justify-content-between mb-3">
+        <select id="rsel" class="form-select" style="max-width:320px"></select>
+        <button class="btn btn-ghost" id="exp"><i class="bi bi-download me-1"></i>Export CSV</button></div>
+      <div class="row g-3 mb-3 align-items-center" id="rk"></div>
+      <div class="cu-card p-2 table-responsive"><table class="table table-hover align-middle mb-0">
+        <thead><tr><th>#</th><th>Name</th><th>Team</th><th>Pass code</th><th>Status</th><th>Check-in time</th><th></th></tr></thead><tbody id="rt"></tbody></table></div>
+    </section>
+
+    <!-- Attendance -->
+    <section id="v-att" class="d-none">
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <label class="small muted" for="gsel">Gate event</label>
+        <select id="gsel" class="form-select" style="max-width:320px"></select>
+        <span class="small muted ms-auto"><i class="bi bi-broadcast text-danger me-1"></i>Live, refreshes every 4 seconds</span></div>
+      <div class="row g-3 mb-3" id="live"></div>
+      <div class="cu-card p-4 text-center mb-3" id="bn" style="border-width:2px">
+        <div class="fs-2 fw-bold" id="bt">Ready to scan</div><div class="muted" id="bs">Scan a QR pass or type a pass code. Wrong-event passes and repeat scans are rejected.</div><div id="bx" class="mt-2"></div></div>
+      <div class="row g-3 mb-3">
+        <div class="col-lg-4"><div class="cu-card p-3 h-100"><h6><i class="bi bi-qr-code-scan text-danger me-2"></i>QR scan</h6>
+          <p class="small muted">Scan a participant's QR pass with this device's camera.</p>
+          <div id="reader" class="mb-2 rounded overflow-hidden"></div><button class="btn btn-cu w-100" id="scan">Start scanning</button></div></div>
+        <div class="col-lg-4"><div class="cu-card p-3 h-100"><h6><i class="bi bi-keyboard text-danger me-2"></i>Enter pass code</h6>
+          <p class="small muted">Type the pass code printed under the QR.</p>
+          <input id="pcode" class="form-control mb-2" placeholder="CU-XXXXXXXXXXXX"><button class="btn btn-ghost w-100" id="manual">Check in</button></div></div>
+        <div class="col-lg-4"><div class="cu-card p-3 h-100"><h6><i class="bi bi-stopwatch text-danger me-2"></i>Temporary code</h6>
+          <p class="small muted">A time-limited code students can enter on their own pass.</p>
+          <div class="input-group mb-2"><input id="tmin" type="number" class="form-control" value="10" min="1" max="120"><span class="input-group-text bg-transparent border-secondary-subtle text-secondary">minutes</span></div>
+          <button class="btn btn-ghost w-100" id="tgen">Generate code</button>
+          <div class="text-center fs-1 fw-bold mt-2" id="tshow" style="letter-spacing:.2em"></div></div></div>
+      </div>
+      <div class="cu-card p-3 mb-3" id="facecard">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1"><h6 class="mb-0"><i class="bi bi-person-bounding-box text-danger me-2"></i>Face check-in</h6>
+          <span class="small muted ms-auto" id="fstat"></span></div>
+        <p class="small muted">Students who turned on face check-in in their profile are recognised by the camera. One person at a time, facing the camera. Anyone who is not recognised can still use the QR pass or pass code.</p>
+        <div class="row g-3"><div class="col-md-6 col-lg-4"><div class="face-stage" id="fstage"><video id="fvid" playsinline muted></video><canvas id="fcan"></canvas></div></div>
+          <div class="col-md-6 col-lg-8"><button class="btn btn-cu" id="fscan"><i class="bi bi-camera-video me-1"></i>Start face check-in</button>
+            <div class="small muted mt-2" id="fmsg">Uses this device's camera. Needs https or localhost. Face matching is a convenience, so keep a person at the gate.</div></div></div></div>
+      <div class="cu-card p-2 table-responsive"><table class="table table-hover align-middle mb-0">
+        <thead><tr><th>Time</th><th>Participant</th><th>Team</th><th>Method</th><th>Result</th></tr></thead><tbody id="scanlog"></tbody></table></div>
+    </section>
+  
+</main>
+</div>
+
+<div class="modal fade" id="am" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><form class="modal-content" id="af">
+  <div class="modal-header"><h5 class="modal-title" id="amt">Send an update</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body"><p class="small muted">Everyone registered for this event gets it instantly in their notification bell.</p>
+    <textarea class="form-control" id="amsg" rows="3" maxlength="400" placeholder="e.g. Doors open at 9:30. Bring your college ID and your QR pass." required></textarea></div>
+  <div class="modal-footer"><button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button><button class="btn btn-cu">Send update</button></div>
+</form></div></div>
+
+<div class="modal fade" id="em" tabindex="-1"><div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable"><form class="modal-content" id="ef">
+  <div class="modal-header"><h5 class="modal-title" id="emt">Create event</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body row g-3">
+    <div class="col-12 ai-box" id="aibox"><label class="form-label text-white" for="idea"><i class="bi bi-stars text-danger me-1"></i>Describe your event in one line and let AI fill in the form</label>
+      <div class="input-group"><input id="idea" class="form-control" maxlength="400" placeholder="e.g. 2-day hackathon on AI for teams of 3 to 4, around 80 students"><button type="button" class="btn btn-cu" id="draft">Draft event</button></div>
+      <div id="dnote" class="small muted mt-1">You can edit everything before saving.</div></div>
+    <div class="col-12"><label class="form-label">Title</label><input class="form-control" name="title" required></div>
+    <div class="col-6"><label class="form-label">Category</label><select class="form-select" name="category"><option>Technical</option><option>Cultural</option><option>Sports</option><option>Workshop</option></select></div>
+    <div class="col-6"><label class="form-label">Venue</label><input class="form-control" name="venue"></div>
+    <div class="col-6"><label class="form-label">Starts</label><input type="datetime-local" class="form-control" name="start_at" required></div>
+    <div class="col-6"><label class="form-label">Ends</label><input type="datetime-local" class="form-control" name="end_at" required></div>
+    <div class="col-6"><label class="form-label">Capacity (people)</label><input type="number" class="form-control" name="seats" value="100" min="1"></div>
+    <div class="col-6"><label class="form-label">Fee (Rs, 0 = free)</label><input type="number" class="form-control" name="fee" value="0" min="0"></div>
+    <div class="col-4"><label class="form-label">Entry type</label><select class="form-select" name="type"><option value="individual">Individual</option><option value="group">Team / group</option></select></div>
+    <div class="col-4"><label class="form-label">Min team size</label><input type="number" class="form-control" name="min_team" value="2" min="2"></div>
+    <div class="col-4"><label class="form-label">Max team size</label><input type="number" class="form-control" name="max_team" value="5" min="2"></div>
+    <div class="col-12"><label class="form-label">Event location <span class="muted small">for student face check-in: they must be inside this area to sign in</span></label>
+      <div class="row g-2"><div class="col-4"><input class="form-control" name="lat" placeholder="Latitude" inputmode="decimal"></div><div class="col-4"><input class="form-control" name="lng" placeholder="Longitude" inputmode="decimal"></div>
+        <div class="col-4"><div class="input-group"><input type="number" class="form-control" name="radius_m" value="150" min="30" max="5000" title="Allowed distance from the venue"><span class="input-group-text bg-transparent border-secondary-subtle text-secondary">m radius</span></div></div></div>
+      <button type="button" class="btn btn-ghost btn-sm mt-2" id="geobtn"><i class="bi bi-crosshair me-1"></i>Use my current location</button>
+      <span class="small muted ms-2" id="geonote">Stand at the venue and press the button, or paste coordinates from Google Maps. Leave empty to turn location check-in off for this event.</span></div>
+    <div class="col-12"><label class="form-label">Description</label><textarea class="form-control" name="description" rows="3"></textarea></div>
+    <div class="col-12"><label class="form-label">Topics (tags) <span class="muted">Students are matched to the event by these</span></label>
+      <input class="form-control" name="tags" id="tagin" placeholder="Coding, AI &amp; Machine Learning" maxlength="200"><div id="tagchips" class="mt-2"></div></div>
+    <div class="col-12"><div class="small" id="reach"><span class="muted">Add topics to see how many students this event will reach.</span></div></div></div>
+  <div class="modal-footer"><button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button><button class="btn btn-cu">Save event</button></div>
+</form></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/face.js"></script>
+<script>
+const u = API.user();
+if (!u || u.role !== 'admin') location.href = '/login.html?next=/admin.html';
+who.textContent = u.name;
+let events = [], editing = null, scanner = null;
+const titles = { dash: 'Dashboard', events: 'Manage events', regs: 'Registrations', att: 'Attendance methods' };
+const loaders = { dash: () => loadDash(), events: () => loadEvents(), regs: () => loadRegs(), att: () => loadAtt() };
+
+menu.querySelectorAll('[data-v]').forEach(a => a.onclick = () => show(a.dataset.v));
+function show(v) {
+  menu.querySelectorAll('[data-v]').forEach(a => a.classList.toggle('active', a.dataset.v === v));
+  ['dash', 'events', 'regs', 'att'].forEach(k => document.getElementById('v-' + k).classList.toggle('d-none', k !== v));
+  if (v !== 'att' && typeof fstream !== 'undefined' && fstream) faceStop();
+  vt.textContent = titles[v]; loaders[v]();
+}
+const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message, false); } };
+
+// ----- dashboard -----
+loadDash = guard(async function () {
+  const s = await API.req('/admin/stats');
+  kpis.innerHTML = [['Total events', s.events, 'bi-calendar-event'], ['Participants', s.participants, 'bi-person'], ['Registrations', s.registrations, 'bi-people'], ['Active events', s.active_events, 'bi-lightning']]
+    .map(([l, n, i]) => `<div class="col-6 col-lg-3"><div class="cu-card kpi d-flex align-items-center gap-3"><i class="bi ${i} fs-3 text-danger"></i><div><small>${l}</small><div class="n">${n}</div></div></div></div>`).join('');
+  const max = Math.max(1, ...s.chart.map(c => c.registrations));
+  chart.innerHTML = s.chart.length ? s.chart.slice().reverse().map(c => `<div class="bar-col"><div class="bar-pair"><div class="r" style="height:${c.registrations / max * 100}%" title="${c.registrations}"></div><div class="a" style="height:${c.attendance / max * 100}%" title="${c.attendance}"></div></div><small>${esc(c.title)}</small></div>`).join('') : '<p class="muted">No data yet.</p>';
+  tips.innerHTML = s.insights.length ? s.insights.map(t => `<div class="insight"><i class="bi ${t.kind === 'gap' ? 'bi-lightbulb' : t.kind === 'full' ? 'bi-graph-up-arrow' : 'bi-megaphone'}"></i><div>${esc(t.text)}</div></div>`).join('')
+    : '<p class="muted small mb-0">No suggestions right now. They appear as students pick interests and register.</p>';
+  const topMax = Math.max(1, ...s.top_interests.map(t => t.count));
+  topsub.textContent = s.students_with_interests ? `${s.students_with_interests} students have picked interests` : '';
+  tops.innerHTML = s.top_interests.length ? s.top_interests.map(t => `<div><div class="d-flex justify-content-between small"><span>${esc(t.name)}</span><span class="muted">${t.count}</span></div><div class="hbar"><i style="width:${t.count / topMax * 100}%"></i></div></div>`).join('')
+    : '<p class="muted small mb-0">Students have not picked interests yet.</p>';
+  recent.innerHTML = s.recent.length ? s.recent.map(r => `<div class="d-flex gap-2 align-items-start"><i class="bi ${r.status === 'checked_in' ? 'bi-qr-code-scan' : 'bi-person-plus'} text-danger"></i>
+    <div class="small"><b>${esc(r.name)}</b> ${r.status === 'checked_in' ? 'checked in to' : 'registered for'} ${esc(r.title)}</div></div>`).join('') : '<p class="muted small">Activity will appear here once students register.</p>';
+});
+
+// ----- events -----
+loadEvents = guard(async function () { events = await API.req('/admin/events'); drawEvents(); });
+function drawEvents() {
+  const q = es.value.toLowerCase(); const rows = events.filter(e => e.title.toLowerCase().includes(q));
+  et.innerHTML = rows.length ? rows.map(e => `<tr><td class="fw-semibold">${esc(e.title)}${e.type === 'group' ? ' <span class="badge badge-cat ms-1">Team ' + e.min_team + '-' + e.max_team + '</span>' : ''}</td><td>${fmtDate(e.start_at)} ${fmtTime(e.start_at)}</td>
+    <td>${e.registered} / ${e.seats}</td><td><span class="st st-${e.status}">${e.status}</span></td>
+    <td class="text-end text-nowrap"><button class="btn btn-sm btn-ghost" onclick="openAnnounce(${e.id})" aria-label="Send update to registered students" title="Send update"><i class="bi bi-megaphone"></i></button>
+    <button class="btn btn-sm btn-ghost" onclick="openForm(${e.id}, true)" aria-label="Duplicate event" title="Duplicate"><i class="bi bi-copy"></i></button>
+    <button class="btn btn-sm btn-ghost" onclick="openForm(${e.id})" aria-label="Edit"><i class="bi bi-pencil"></i></button>
+    <button class="btn btn-sm btn-ghost text-danger" onclick="del(${e.id})" aria-label="Delete"><i class="bi bi-trash"></i></button></td></tr>`).join('')
+    : '<tr><td colspan="5" class="muted text-center py-4">No events found. Create your first event.</td></tr>';
+}
+es.oninput = drawEvents;
+const toLocal = s => s.replace(' ', 'T').slice(0, 16);
+let interestOptions = [];
+API.req('/interest-options').then(o => { interestOptions = o; drawTagChips(); }).catch(() => {});
+const tagList = () => tagin.value.split(',').map(x => x.trim()).filter(Boolean);
+function drawTagChips() {
+  const on = tagList().map(x => x.toLowerCase());
+  tagchips.innerHTML = interestOptions.map(o => `<button type="button" class="chip chip-sm ${on.includes(o.toLowerCase()) ? 'on' : ''}" data-t="${esc(o)}">${esc(o)}</button>`).join('');
+}
+tagchips.onclick = e => {
+  const b = e.target.closest('[data-t]'); if (!b) return;
+  const t = b.dataset.t, cur = tagList(), i = cur.findIndex(x => x.toLowerCase() === t.toLowerCase());
+  i >= 0 ? cur.splice(i, 1) : cur.push(t); tagin.value = cur.slice(0, 5).join(', '); drawTagChips(); updateReach();
+};
+let reachT;
+function updateReach() {
+  clearTimeout(reachT);
+  reachT = setTimeout(async () => {
+    const d = Object.fromEntries(new FormData(ef));
+    if (!d.tags && !d.title) { reach.innerHTML = '<span class="muted">Add topics to see how many students this event will reach.</span>'; return; }
+    try {
+      const r = await API.req('/admin/reach?' + new URLSearchParams({ title: d.title || '', category: d.category || '', description: d.description || '', tags: d.tags || '' }));
+      reach.innerHTML = r.students ? `<i class="bi bi-people text-danger me-1"></i><b>${r.matching}</b> of ${r.students} students have interests that match this event. They are notified when you publish it.`
+        : '<span class="muted">No students have signed up yet.</span>';
+    } catch {}
+  }, 350);
+}
+['title', 'description', 'tags', 'category'].forEach(k => ef.elements[k].addEventListener('input', () => { if (k === 'tags') drawTagChips(); updateReach(); }));
+
+function openForm(id, clone) {
+  editing = id && !clone ? id : null; ef.reset();
+  emt.textContent = clone ? 'Duplicate event' : id ? 'Edit event' : 'Create event';
+  aibox.classList.toggle('d-none', !!id && !clone); dnote.textContent = 'You can edit everything before saving.'; idea.value = '';
+  if (id) {
+    const e = events.find(x => x.id === id);
+    for (const k of ['title', 'category', 'venue', 'seats', 'fee', 'description', 'type', 'min_team', 'max_team', 'lat', 'lng', 'radius_m']) ef.elements[k].value = e[k] ?? '';
+    ef.elements.tags.value = e.tags || '';
+    if (clone) ef.elements.title.value = e.title + ' (copy)';
+    else { ef.elements.start_at.value = toLocal(e.start_at); ef.elements.end_at.value = toLocal(e.end_at); }
+  }
+  drawTagChips(); updateReach();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('em')).show();
+}
+geobtn.onclick = () => {
+  if (!navigator.geolocation) return toast('This browser cannot read your location.', false);
+  geonote.textContent = 'Finding your location...';
+  navigator.geolocation.getCurrentPosition(p => {
+    ef.elements.lat.value = p.coords.latitude.toFixed(6); ef.elements.lng.value = p.coords.longitude.toFixed(6);
+    geonote.textContent = `Set from this device (accurate to about ${Math.round(p.coords.accuracy)} m). Check it is the venue, then save.`;
+  }, () => { geonote.textContent = 'Could not get your location. Allow location access for this site, or paste the coordinates instead.'; }, { enableHighAccuracy: true, timeout: 15000 });
+};
+draft.onclick = guard(async () => {
+  if (idea.value.trim().length < 6) return toast('Describe the event in a few words first.', false);
+  draft.disabled = true; draft.textContent = 'Drafting...';
+  try {
+    const d = await API.req('/admin/ai/draft', 'POST', { idea: idea.value });
+    for (const k of ['title', 'category', 'description', 'seats', 'type', 'min_team', 'max_team']) ef.elements[k].value = d[k];
+    ef.elements.tags.value = (d.tags || []).join(', ');
+    dnote.textContent = d.source === 'ai' ? 'Drafted with AI. Check the details, then add the date, time and venue.'
+      : 'Drafted from a smart template. Add ANTHROPIC_API_KEY on the server for fuller AI-written descriptions. Check the details, then add the date, time and venue.';
+    drawTagChips(); updateReach();
+  } finally { draft.disabled = false; draft.textContent = 'Draft event'; }
+});
+idea.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); draft.click(); } };
+ef.onsubmit = guard(async e => {
+  e.preventDefault(); const d = Object.fromEntries(new FormData(ef));
+  if (d.end_at <= d.start_at) return toast('End time must be after the start time.', false);
+  const r = editing ? await API.req('/admin/events/' + editing, 'PUT', d) : await API.req('/admin/events', 'POST', d);
+  bootstrap.Modal.getInstance(document.getElementById('em')).hide();
+  toast(editing ? (r.notified ? `Event updated. ${r.notified} registered student${r.notified === 1 ? '' : 's'} notified.` : 'Event updated.')
+    : (r.notified ? `Event created. ${r.notified} interested student${r.notified === 1 ? '' : 's'} notified.` : 'Event created.')); loadEvents();
+});
+let announcing = null;
+function openAnnounce(id) { announcing = id; amt.textContent = 'Send an update: ' + events.find(x => x.id === id).title; amsg.value = ''; bootstrap.Modal.getOrCreateInstance(document.getElementById('am')).show(); }
+af.onsubmit = guard(async e => {
+  e.preventDefault(); const r = await API.req(`/admin/events/${announcing}/announce`, 'POST', { message: amsg.value });
+  bootstrap.Modal.getInstance(document.getElementById('am')).hide(); toast(r.sent ? `Update sent to ${r.sent} student${r.sent === 1 ? '' : 's'}.` : 'Nobody has registered yet, so no one was notified.');
+});
+const del = guard(async id => { if (!confirm('Delete this event and all its registrations?')) return; await API.req('/admin/events/' + id, 'DELETE'); toast('Event deleted.'); loadEvents(); });
+
+// ----- registrations -----
+async function fillSelect(sel) { events = await API.req('/admin/events'); sel.innerHTML = events.map(e => `<option value="${e.id}">${esc(e.title)}</option>`).join(''); }
+loadRegs = guard(async function () { await fillSelect(rsel); drawRegs(); });
+rsel.onchange = guard(drawRegs);
+exp.onclick = guard(async () => {
+  const r = await fetch(`/api/admin/events/${rsel.value}/export`, { headers: { Authorization: 'Bearer ' + API.token() } });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = 'registrations.csv'; a.click();
+});
+async function drawRegs() {
+  if (!rsel.value) { rt.innerHTML = '<tr><td colspan="7" class="muted text-center py-4">Create an event to see registrations.</td></tr>'; rk.innerHTML = ''; return; }
+  const rows = await API.req(`/admin/events/${rsel.value}/registrations`);
+  const done = rows.filter(r => r.status === 'checked_in').length, pct = rows.length ? Math.round(done / rows.length * 100) : 0;
+  rk.innerHTML = [['Total registered', rows.length], ['Checked in', done], ['Remaining', rows.length - done]].map(([l, n]) => `<div class="col-4 col-md-3"><div class="cu-card kpi"><small>${l}</small><div class="n">${n}</div></div></div>`).join('')
+    + `<div class="col-12 col-md-3 d-flex align-items-center gap-3"><div class="ring" style="--p:${pct}"><span>${pct}%</span></div><small class="muted">Attendance rate</small></div>`;
+  rt.innerHTML = rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}<div class="small muted">${esc(r.email)}</div></td><td>${r.team_name ? esc(r.team_name) : '-'}</td><td><code>${esc(r.pass_code)}</code></td>
+    <td><span class="st st-${r.status}">${r.status === 'checked_in' ? 'Checked in' : 'Pending'}</span></td><td>${r.checked_in_at ? fmtTime(r.checked_in_at) : '-'}</td>
+    <td class="text-end">${r.team_id && r.status !== 'checked_in' ? `<button class="btn btn-sm btn-ghost" onclick="teamIn(${r.team_id})">Check in team</button>` : ''}</td></tr>`).join('')
+    : '<tr><td colspan="7" class="muted text-center py-4">No one has registered for this event yet.</td></tr>';
+}
+
+// ----- attendance -----
+let liveT;
+const isOpen = id => !document.getElementById(id).classList.contains('d-none');
+loadAtt = guard(async function () { await fillSelect(gsel); await refreshLive(); clearInterval(liveT); liveT = setInterval(() => { if (isOpen('v-att')) refreshLive().catch(() => {}); }, 4000); });
+gsel.onchange = guard(async () => { frecent = []; await refreshLive(); });
+const bar = (n, d, c) => `<div class="progress mt-2" style="height:6px;background:var(--line)"><div class="progress-bar" style="width:${d ? Math.min(100, n / d * 100) : 0}%;background:${c}"></div></div>`;
+async function refreshLive() {
+  if (!gsel.value) { live.innerHTML = '<p class="muted">Create an event to start check-in.</p>'; return; }
+  const [l, s] = await Promise.all([API.req(`/admin/events/${gsel.value}/live`), API.req(`/admin/scans?event_id=${gsel.value}`)]);
+  const k = (lbl, n, extra = '') => `<div class="col-6 col-lg-2"><div class="cu-card kpi h-100"><small>${lbl}</small><div class="n">${n}</div>${extra}</div></div>`;
+  live.innerHTML = k('Capacity', l.capacity) + k('Registered', `${l.registered}<small> / ${l.capacity}</small>`, bar(l.registered, l.capacity, 'var(--red)'))
+    + k('Checked in', `${l.checked_in}<small> / ${l.registered}</small>`, bar(l.checked_in, l.registered, '#22c55e')) + k('Not yet in', l.registered - l.checked_in)
+    + k('Teams', l.type === 'group' ? l.teams : '-') + k('Duplicates blocked', l.duplicates_blocked);
+  const lab = { accepted: 'Accepted', duplicate: 'Duplicate rejected', invalid: 'Invalid code', wrong_event: 'Wrong event', out_of_range: 'Not at event location', face_mismatch: 'Face did not match' };
+  scanlog.innerHTML = s.length ? s.map(x => `<tr><td>${fmtTime(x.created_at)}</td><td>${x.name ? esc(x.name) : '<span class="muted">' + esc(x.code) + '</span>'}</td><td>${x.team_name ? esc(x.team_name) : '-'}</td><td>${esc({ face: 'Face (gate)', 'face-gps': 'Face + location' }[x.method] || x.method)}</td>
+    <td><span class="st ${x.result === 'accepted' ? 'st-Active' : x.result === 'duplicate' ? 'st-Upcoming' : 'st-Past'}">${lab[x.result] || esc(x.result)}</span></td></tr>`).join('')
+    : '<tr><td colspan="5" class="muted text-center py-4">No scans yet. Scan a pass to see it here.</td></tr>';
+  faceStatus().catch(() => {});
+  if (isOpen('v-regs')) drawRegs();
+}
+function showBanner(kind, title, sub, extra = '') {
+  const c = { ok: '#22c55e', dup: '#f59e0b', bad: '#ef4444' }[kind];
+  bn.style.borderColor = c; bn.style.background = `color-mix(in srgb, ${c} 12%, var(--panel))`;
+  bt.textContent = title; bs.textContent = sub; bx.innerHTML = extra;
+  bn.classList.remove('pop', 'shake'); void bn.offsetWidth; bn.classList.add(kind === 'ok' ? 'pop' : 'shake');
+}
+function beep(ok) {
+  try { navigator.vibrate && navigator.vibrate(ok ? 80 : [120, 60, 120]);
+    const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(); o.frequency.value = ok ? 880 : 220; o.connect(a.destination); o.start(); o.stop(a.currentTime + .15); } catch {}
+}
+function checkinOk(r) {
+  const t = r.team, more = t && t.done < t.total;
+  showBanner('ok', `${r.name} is in`, t ? `Team ${t.name}: ${t.done} of ${t.total} members checked in` : r.event,
+    more ? `<button class="btn btn-cu btn-sm" onclick="teamIn(${t.id})">Check in the rest of the team (${t.total - t.done})</button>` : '');
+  beep(true); refreshLive();
+}
+function checkinFail(e) {
+  const dup = e.status === 409;
+  showBanner(dup ? 'dup' : 'bad', dup ? 'Already checked in' : 'Entry rejected', e.message + (dup && e.data && e.data.already_at ? ` First scan was at ${fmtTime(e.data.already_at)}.` : ''));
+  beep(false); refreshLive().catch(() => {});
+}
+async function checkin(code, method) {
+  try { checkinOk(await API.req('/admin/checkin', 'POST', { pass_code: code, method, event_id: gsel.value })); return true; }
+  catch (e) { checkinFail(e); return false; }
+}
+const teamIn = guard(async id => { const r = await API.req(`/admin/teams/${id}/checkin`, 'POST'); toast(`${r.checked_in} team member(s) checked in.`); showBanner('ok', `Team ${r.team.name} is in`, `${r.team.done} of ${r.team.total} members checked in`); refreshLive(); });
+manual.onclick = async () => { if (pcode.value.trim()) { if (await checkin(pcode.value, 'manual')) pcode.value = ''; } };
+pcode.onkeydown = e => { if (e.key === 'Enter') manual.click(); };
+tgen.onclick = guard(async () => { const r = await API.req(`/admin/events/${gsel.value}/temp-code`, 'POST', { minutes: tmin.value }); tshow.textContent = r.code; toast(`Code valid for ${r.minutes} minutes.`); });
+scan.onclick = async () => {
+  if (scanner) { await scanner.stop().catch(() => {}); scanner = null; scan.textContent = 'Start scanning'; return; }
+  scanner = new Html5Qrcode('reader'); let busy = false;
+  try {
+    await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 }, async txt => { if (busy) return; busy = true; await checkin(txt, 'qr'); setTimeout(() => busy = false, 2500); });
+    scan.textContent = 'Stop scanning';
+  } catch { scanner = null; toast('Camera unavailable. Allow camera access or enter the pass code instead.', false); }
+};
+
+// ----- face check-in -----
+let fstream = null, floop = null, fbuf = [], frecent = [];
+async function faceStatus() {
+  if (!gsel.value) return;
+  const f = await API.req(`/admin/events/${gsel.value}/face-status`);
+  fstat.textContent = `${f.enrolled} of ${f.total} registered can use face check-in`;
+}
+function faceStop() {
+  clearTimeout(floop); floop = null; FaceKit.stop(fstream); fstream = null; fvid.srcObject = null; fbuf = [];
+  fcan.getContext('2d').clearRect(0, 0, fcan.width, fcan.height); fscan.innerHTML = '<i class="bi bi-camera-video me-1"></i>Start face check-in';
+}
+fscan.onclick = async () => {
+  if (fstream) { faceStop(); fmsg.textContent = 'Face check-in stopped.'; return; }
+  if (!gsel.value) return toast('Pick an event first.', false);
+  fscan.disabled = true; fmsg.textContent = 'Loading face recognition. The first time takes a few seconds...';
+  try {
+    await FaceKit.load(); fstream = await FaceKit.camera(fvid);
+    fcan.width = fvid.videoWidth; fcan.height = fvid.videoHeight; fstage.style.aspectRatio = `${fvid.videoWidth} / ${fvid.videoHeight}`;
+    fscan.innerHTML = '<i class="bi bi-stop-circle me-1"></i>Stop face check-in'; fmsg.textContent = 'Camera is on. One person at a time, facing the camera.';
+    faceTick();
+  } catch (e) { faceStop(); fmsg.textContent = ''; toast(e.message || 'Camera unavailable.', false); }
+  fscan.disabled = false;
+};
+async function faceTick() {
+  if (!fstream) return;
+  let wait = 350;
+  try {
+    const faces = await FaceKit.detect(fvid), g = fcan.getContext('2d');
+    g.clearRect(0, 0, fcan.width, fcan.height);
+    faces.forEach((f, i) => { const b = f.detection.box; g.lineWidth = 3; g.strokeStyle = i === 0 ? '#22c55e' : 'rgba(255,255,255,.4)'; g.strokeRect(b.x, b.y, b.width, b.height); });
+    const main = faces[0];
+    if (!main || FaceKit.problem([main], fvid)) fbuf = [];
+    else {
+      const d = Array.from(main.descriptor);
+      if (fbuf.length && faceapi.euclideanDistance(fbuf[0], d) > 0.45) fbuf = [];   // someone else stepped in
+      fbuf.push(d);
+      if (fbuf.length >= 3) { const avg = FaceKit.avg(fbuf); fbuf = []; wait = await faceSubmit(avg); }
+    }
+  } catch (e) { console.error(e); }
+  if (fstream) floop = setTimeout(faceTick, wait);
+}
+// Three steady frames are averaged, then sent once. Someone who just got a result is not re-sent while they stand there.
+async function faceSubmit(d) {
+  const now = Date.now(); frecent = frecent.filter(x => x.until > now);
+  if (frecent.some(x => faceapi.euclideanDistance(x.d, d) < 0.4)) return 400;
+  try { checkinOk(await API.req('/admin/face-checkin', 'POST', { event_id: gsel.value, descriptor: d })); frecent.push({ d, until: now + 15000 }); }
+  catch (e) { checkinFail(e); if (e.data && e.data.registration_id) frecent.push({ d, until: now + 15000 }); }
+  return 2500;
+}
+bellslot.innerHTML = bellHTML(); initBell();
+loadDash();
+</script>
+</body></html>

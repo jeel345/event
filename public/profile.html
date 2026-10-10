@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profile | CATCH UP</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="/css/style.css" rel="stylesheet">
+<link rel="icon" type="image/png" href="/img/favicon.png"><meta name="theme-color" content="#0a0508">
+<script src="/js/splash.js"></script></head><body>
+<div id="nav"></div>
+<main class="container py-4"><div class="row g-4">
+  <div class="col-lg-3"><div class="cu-card p-3 text-center">
+    <i class="bi bi-person-circle" style="font-size:4.5rem"></i><h5 class="mb-0" id="nm"></h5><div class="small muted mb-3" id="em"></div>
+    <div class="side text-start"><a class="active" href="/profile.html"><i class="bi bi-person"></i>Profile</a><a href="/my-events.html"><i class="bi bi-calendar-event"></i>My events</a>
+    <a href="/my-events.html"><i class="bi bi-ticket-perforated"></i>My passes</a><a onclick="API.logout()"><i class="bi bi-box-arrow-right"></i>Logout</a></div></div></div>
+  <div class="col-lg-9"><form id="f" class="cu-card p-4"><h4 class="mb-3">My profile</h4><div class="row g-3">
+    <div class="col-md-6"><label class="form-label">Name</label><input class="form-control" name="name" required></div>
+    <div class="col-md-6"><label class="form-label">Phone</label><input class="form-control" name="phone"></div>
+    <div class="col-md-6"><label class="form-label">College</label><input class="form-control" name="college"></div>
+    <div class="col-md-6"><label class="form-label">Course</label><input class="form-control" name="course"></div>
+    <div class="col-12"><label class="form-label">Email</label><input class="form-control" id="mail" disabled></div></div>
+    <hr class="my-4" style="border-color:var(--line)">
+    <h5 class="mb-1"><i class="bi bi-stars text-danger me-2"></i>My interests</h5>
+    <p class="small muted">Pick what you enjoy. Your recommendations also learn from the events you register for and attend.</p>
+    <div id="ints" class="interest-box"></div>
+    <button class="btn btn-cu mt-4">Save changes</button></form>
+    <div class="cu-card p-4 mt-4" id="facecard">
+      <h5 class="mb-1"><i class="bi bi-person-bounding-box text-danger me-2"></i>Face check-in</h5>
+      <p class="small muted mb-3">Skip showing a QR code: at the entrance a camera recognises you and checks you in. Only a numeric face template is saved, never your photo. Your pass and QR code keep working as a backup.</p>
+      <div id="fcstate" class="mb-3 small"></div>
+      <div id="fcsetup" class="d-none mb-3">
+        <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="fcconsent"><label class="form-check-label small" for="fcconsent">I agree to CATCH UP storing a face template of me so I can be checked in at events I register for. I can delete it from this page at any time.</label></div>
+        <div class="row g-3">
+          <div class="col-md-6"><div class="face-stage"><video id="fcvid" playsinline muted></video></div></div>
+          <div class="col-md-6"><div class="fw-semibold" id="fcstep">Ready when you are</div><div class="small muted mb-3" id="fchelp">Tick the box, then start the camera. We take 3 quick captures.</div>
+            <div class="d-flex gap-2 flex-wrap"><button type="button" class="btn btn-cu" id="fcgo">Start camera</button><button type="button" class="btn btn-ghost" id="fccancel">Cancel</button></div>
+            <div class="progress mt-3" style="height:6px;background:var(--line)"><div class="progress-bar" id="fcbar" style="width:0;background:var(--red)"></div></div></div></div></div>
+      <div class="d-flex gap-2 flex-wrap" id="fcbtns"></div>
+    </div>
+  </div>
+</div></main>
+<div id="foot"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app.js"></script>
+<script>
+const authed=needLogin();let picker=null;
+(async()=>{if(!authed)return;const u=await API.req('/me');nm.textContent=u.name;em.textContent=u.email;mail.value=u.email;
+ for(const k of ['name','phone','college','course'])f.elements[k].value=u[k]||'';
+ picker=await interestPicker(ints,u.interests||[]);})();
+f.onsubmit=async e=>{e.preventDefault();try{const u=await API.req('/me','PUT',{...Object.fromEntries(new FormData(f)),interests:picker?picker.get():undefined});
+ localStorage.setItem('cu_user',JSON.stringify(u));nm.textContent=u.name;toast('Profile saved. Your recommendations are updated.');renderChrome();}catch(x){toast(x.message,false)}};
+</script>
+<script src="/js/face.js"></script>
+<script>
+(async()=>{
+ if(!authed) return;
+ const STEPS=['Look straight at the camera','Turn your head slightly to the left','Turn your head slightly to the right'];
+ let stream=null, samples=[];
+ const progress=()=>{fcbar.style.width=(samples.length/3*100)+'%';};
+ const close=()=>{FaceKit.stop(stream);stream=null;samples=[];fcvid.srcObject=null;fcsetup.classList.add('d-none');fcconsent.checked=false;fcconsent.disabled=false;
+   fcgo.disabled=false;fcgo.textContent='Start camera';fcstep.textContent='Ready when you are';fchelp.textContent='Tick the box, then start the camera. We take 3 quick captures.';progress();};
+ const open=()=>{fcsetup.classList.remove('d-none');fcsetup.scrollIntoView({behavior:'smooth',block:'center'});};
+ const remove=async()=>{if(!confirm('Remove your face data? You can still check in with your QR pass.'))return;
+   try{await API.req('/my/face','DELETE');toast('Your face data was removed.');state();}catch(x){toast(x.message,false)}};
+ async function state(){
+   const s=await API.req('/my/face');
+   fcstate.innerHTML=s.enrolled?`<i class="bi bi-check-circle-fill text-success me-1"></i>Face check-in is on. Set up on ${fmtDate(s.enrolled_at)}.`:'<span class="muted">Not set up yet.</span>';
+   fcbtns.innerHTML=`<button type="button" class="btn ${s.enrolled?'btn-ghost':'btn-cu'}" id="fcopen">${s.enrolled?'Re-scan my face':'Set up face check-in'}</button>`+(s.enrolled?'<button type="button" class="btn btn-ghost" id="fcdel">Remove my face data</button>':'');
+   fcopen.onclick=open; if(s.enrolled) fcdel.onclick=remove;
+ }
+ fccancel.onclick=close;
+ fcgo.onclick=async()=>{
+   if(!fcconsent.checked) return toast('Please tick the agreement box first.',false);
+   fcgo.disabled=true;
+   try{
+     if(!stream){
+       fchelp.textContent='Loading face recognition. The first time takes a few seconds...';
+       await FaceKit.load(); stream=await FaceKit.camera(fcvid); fcconsent.disabled=true;
+       fcgo.textContent='Capture'; fcstep.textContent=`Capture 1 of 3: ${STEPS[0]}`; fchelp.textContent='Press Capture when your face is in the frame.'; fcgo.disabled=false; return;
+     }
+     const faces=await FaceKit.detect(fcvid), bad=FaceKit.problem(faces,fcvid);
+     if(bad){toast(bad,false);fcgo.disabled=false;return;}
+     samples.push(Array.from(faces[0].descriptor)); progress();
+     if(samples.length<3){fcstep.textContent=`Capture ${samples.length+1} of 3: ${STEPS[samples.length]}`;fcgo.disabled=false;return;}
+     fcstep.textContent='Saving...';
+     await API.req('/my/face','POST',{descriptors:samples,consent:true});
+     toast('Face check-in is ready.'); close(); state();
+   }catch(x){toast(x.message,false);fcgo.disabled=false;if(samples.length>=3)samples=[],progress();}
+ };
+ state().catch(()=>{});
+})();
+</script>
+</body></html>

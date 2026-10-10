@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Register | CATCH UP</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="/css/style.css" rel="stylesheet">
+<link rel="icon" type="image/png" href="/img/favicon.png"><meta name="theme-color" content="#0a0508">
+<script src="/js/splash.js"></script></head><body>
+<div id="nav"></div>
+<main class="container py-4">
+  <a href="/events.html" class="small muted"><i class="bi bi-arrow-left"></i> Back to events</a>
+  <div class="row g-4 mt-1" id="box"></div>
+</main>
+<div id="foot"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app.js"></script>
+<script>
+const id = new URLSearchParams(location.search).get('id');
+let ev;
+(async () => { try {
+  ev = await API.req('/events/' + id);
+  const left = ev.seats - ev.registered, group = ev.type === 'group', u = API.user() || {};
+  box.innerHTML = `<div class="col-lg-6"><div class="ev-banner ${ev.category} rounded-3" style="height:200px"><i class="bi ${catIcon[ev.category]}" style="font-size:5rem"></i></div>
+    <h2 class="fw-bold mt-3">${esc(ev.title)}</h2><span class="badge badge-cat">${ev.category}</span>${group ? ' <span class="badge badge-cat">Team event</span>' : ''}
+    <div class="ev-meta vstack gap-2 my-3"><span><i class="bi bi-calendar-event"></i>${fmtDate(ev.start_at)} &nbsp; ${fmtRange(ev.start_at, ev.end_at)}</span><span><i class="bi bi-geo-alt"></i>${esc(ev.venue)}</span></div>
+    ${ev.tags ? '<div class="d-flex flex-wrap gap-1 mb-3">' + ev.tags.split(',').map(t => `<span class="badge badge-cat">${esc(t)}</span>`).join('') + '</div>' : ''}
+    <h6>About event</h6><p class="muted">${esc(ev.description)}</p>
+    <div class="d-flex gap-4 flex-wrap"><div><i class="bi bi-people text-danger"></i> <b>${left}</b> <span class="muted small">of ${ev.seats} spots left</span></div>
+    <div><i class="bi bi-ticket-perforated text-danger"></i> <b>${+ev.fee ? 'Rs ' + ev.fee : 'Free'}</b></div>
+    ${group ? `<div><i class="bi bi-diagram-3 text-danger"></i> <b>${ev.min_team} to ${ev.max_team}</b> <span class="muted small">members per team</span></div>` : ''}</div></div>
+  <div class="col-lg-6"><form id="f" class="cu-card p-4 vstack gap-3"><h5 class="mb-0">${group ? 'Register your team' : 'Register for event'}</h5>
+    ${group ? `<p class="small muted mb-0">You are the team leader. Add your teammates: each person gets their own QR pass, and the whole team is counted against the event capacity.</p>
+      <div><label class="form-label">Team name</label><input class="form-control" id="tn" placeholder="e.g. Code Crusaders" required></div>
+      <div><label class="form-label">You (team leader)</label><input class="form-control" value="${esc(u.name || 'Log in to continue')}" disabled></div>
+      <div id="mem" class="vstack gap-2"></div>
+      <div class="d-flex justify-content-between align-items-center"><button type="button" class="btn btn-ghost btn-sm" id="add"><i class="bi bi-person-plus me-1"></i>Add member</button><span class="small muted" id="cnt"></span></div>`
+    : `<div><label class="form-label">Full name</label><input class="form-control" value="${esc(u.name || '')}" disabled></div>
+      <div><label class="form-label">Email</label><input class="form-control" value="${esc(u.email || '')}" disabled></div>`}
+    <div class="form-check"><input class="form-check-input" type="checkbox" id="t" required><label class="form-check-label small" for="t">I agree to the terms and conditions</label></div>
+    <button class="btn btn-cu" id="go" ${left <= 0 || ev.status === 'Past' ? 'disabled' : ''}>${left <= 0 ? 'Event full' : group ? 'Register team' : 'Register now'}</button></form></div>`;
+  if (group) setupTeam();
+  f.onsubmit = async e => {
+    e.preventDefault(); if (!needLogin()) return; go.disabled = true;
+    try {
+      if (group) {
+        const members = [...mem.querySelectorAll('.m')].map(r => ({ name: r.querySelector('.mn').value, email: r.querySelector('.me').value }));
+        await API.req('/events/' + id + '/register-team', 'POST', { team_name: tn.value, members });
+        toast('Team registered. Every member has a pass.');
+      } else { await API.req('/events/' + id + '/register', 'POST'); toast('You are registered. Your pass is ready.'); }
+      setTimeout(() => location.href = '/my-events.html', 900);
+    } catch (x) { toast(x.message, false); go.disabled = false; }
+  };
+} catch (x) { box.innerHTML = '<p class="muted">' + esc(x.message) + '</p>'; } })();
+
+function setupTeam() {
+  const addRow = () => {
+    const d = document.createElement('div'); d.className = 'm d-flex gap-2';
+    d.innerHTML = '<input class="form-control mn" placeholder="Member name" required><input type="email" class="form-control me" placeholder="Member email" required><button type="button" class="btn btn-ghost" aria-label="Remove member"><i class="bi bi-x-lg"></i></button>';
+    d.querySelector('button').onclick = () => { d.remove(); count(); };
+    mem.appendChild(d); count();
+  };
+  const count = () => {
+    const n = mem.children.length + 1;
+    cnt.textContent = `Team size: ${n} (allowed ${ev.min_team} to ${ev.max_team})`;
+    add.disabled = n >= ev.max_team;
+  };
+  add.onclick = addRow;
+  for (let i = 1; i < ev.min_team; i++) addRow();
+}
+</script>
+</body></html>

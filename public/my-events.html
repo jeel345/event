@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Events | CATCH UP</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="/css/style.css" rel="stylesheet">
+<link rel="icon" type="image/png" href="/img/favicon.png"><meta name="theme-color" content="#0a0508">
+<script src="/js/splash.js"></script></head><body>
+<div id="nav"></div>
+<main class="container py-4">
+  <h2 class="fw-bold mb-3">My events</h2>
+  <div class="d-flex gap-2 mb-4"><button class="chip on" data-t="0">Registered events</button><button class="chip" data-t="1">Past events</button></div>
+  <div class="vstack gap-3" id="list"></div>
+</main>
+<div class="modal fade" id="pm" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content text-center">
+  <div class="modal-header"><h5 class="modal-title" id="pt"></h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body"><div class="qr-box"><div id="qr"></div></div>
+   <div class="mt-2 fw-bold" id="pc"></div><div class="small muted mb-3" id="pi"></div><div id="tm" class="text-start mb-3"></div>
+   <button id="cx" class="btn btn-ghost btn-sm text-danger mb-3 d-none"></button>
+   <div id="fcbox" class="d-none text-start mb-3 p-3 rounded-3" style="border:1px solid var(--line)">
+    <div class="fw-semibold mb-1"><i class="bi bi-person-bounding-box text-danger me-1"></i>Check in with your face</div>
+    <div class="small muted mb-2" id="fchint"></div>
+    <div class="face-stage d-none mb-2" id="fcstage"><video id="fcvid" playsinline muted></video></div>
+    <button class="btn btn-cu w-100" id="fcgo"><i class="bi bi-geo-alt me-1"></i>Scan my face and check in</button>
+    <div id="fcres" class="small mt-2"></div></div>
+   <div id="tc" class="d-none text-start"><label class="form-label">Have a check-in code from the organizer?</label>
+    <div class="input-group"><input id="code" class="form-control" placeholder="6-digit code"><button class="btn btn-cu" id="go">Check in</button></div></div></div>
+</div></div></div>
+<div id="foot"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/face.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const authed=needLogin();
+let all=[],tab=0,cur=null;const pm=()=>bootstrap.Modal.getOrCreateInstance(document.getElementById('pm'));
+document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{tab=+b.dataset.t;document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===b));draw();});
+function draw(){const rows=all.filter(r=>!!+r.is_past===!!tab);
+ list.innerHTML=rows.length?rows.map(r=>`<div class="cu-card p-3 d-flex flex-wrap align-items-center gap-3">
+  <div class="ev-banner ${r.category} rounded-3" style="width:110px;height:76px;padding:0"><i class="bi ${catIcon[r.category]}" style="font-size:2rem;right:.6rem;top:.6rem"></i></div>
+  <div class="flex-grow-1"><h6 class="fw-bold mb-1">${esc(r.title)}${r.team_name ? ' <span class="badge badge-cat ms-1">Team ' + esc(r.team_name) + '</span>' : ''}</h6><div class="ev-meta"><i class="bi bi-calendar-event"></i>${fmtDate(r.start_at)} &nbsp; <i class="bi bi-clock"></i>${fmtRange(r.start_at,r.end_at)} &nbsp; <i class="bi bi-geo-alt"></i>${esc(r.venue)}</div></div>
+  <span class="st st-${r.status}">${r.status==='checked_in'?'Checked in':'Registered'}</span>
+  <button class="btn btn-cu btn-sm" onclick="show(${r.id})">View pass</button></div>`).join('')
+ :'<p class="muted">'+(tab?'No past events yet.':'You have not registered for any events. <a href="/events.html">Browse events</a>')+'</p>';}
+function show(id){cur=all.find(r=>r.id===id);pt.textContent=cur.title;pc.textContent=cur.pass_code;
+ pi.textContent=cur.status==='checked_in'?'Checked in '+fmtTime(cur.checked_in_at):'Show this QR code at the entrance';
+ qr.innerHTML='';new QRCode(qr,{text:cur.pass_code,width:200,height:200});tm.innerHTML='';if(cur.team_id)loadTeam(cur.team_id);
+ cx.classList.toggle('d-none',!!+cur.is_past||cur.status==='checked_in'||(cur.team_id&&cur.leader_id!==API.user().id));cx.textContent=cur.team_id?'Cancel team registration':'Cancel registration';
+ tc.classList.toggle('d-none',cur.status==='checked_in'||!!+cur.is_past);faceBox();pm().show();}
+go.onclick=async()=>{try{await API.req('/my/checkin','POST',{registration_id:cur.id,code:code.value});toast('You are checked in.');pm().hide();load();}catch(x){toast(x.message,false)}};
+async function loadTeam(tid){try{const t=await API.req('/my/teams/'+tid);
+ tm.innerHTML='<div class="fw-semibold mb-2">Team '+esc(t.name)+'</div>'+t.members.map(m=>'<div class="d-flex justify-content-between align-items-center border-top border-secondary-subtle py-2 small"><div>'+esc(m.name)+(m.leader?' <span class="muted">(leader)</span>':'')+'</div><div class="d-flex gap-2 align-items-center"><span class="st st-'+m.status+'">'+(m.status==='checked_in'?'In':'Pending')+'</span>'+(m.pass_code?'<button class="btn btn-ghost btn-sm py-0" data-c="'+esc(m.pass_code)+'">Copy pass link</button>':'')+'</div></div>').join('');
+ tm.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{navigator.clipboard.writeText(location.origin+'/pass.html?code='+b.dataset.c).then(()=>toast('Pass link copied. Send it to your teammate.'))});}catch(x){}}
+cx.onclick=async()=>{if(!confirm(cur.team_id?'Cancel the whole team registration?':'Cancel this registration?'))return;try{await API.req('/my/registrations/'+cur.id,'DELETE');toast('Registration cancelled.');pm().hide();load();}catch(x){toast(x.message,false)}};
+
+// ---------- check in with face + location ----------
+let fcStream=null, fcBusy=false, myFace=null;
+const fcStop=()=>{FaceKit.stop(fcStream);fcStream=null;fcvid.srcObject=null;fcstage.classList.add('d-none');};
+document.getElementById('pm').addEventListener('hidden.bs.modal',()=>{fcStop();fcBusy=false;});
+const fcShow=(kind,html)=>{const c={ok:'success',warn:'warning',bad:'danger',info:'secondary'}[kind];
+  fcres.innerHTML=html?`<div class="alert alert-${c} py-2 px-3 mb-0 small">${html}</div>`:'';};
+async function faceBox(){
+  fcShow('info','');fcgo.disabled=false;fcgo.innerHTML='<i class="bi bi-geo-alt me-1"></i>Scan my face and check in';
+  const show=!!cur&&cur.status!=='checked_in'&&!+cur.is_past;
+  fcbox.classList.toggle('d-none',!show);if(!show)return;
+  try{myFace=await API.req('/my/face');}catch{myFace={enrolled:false};}
+  const maps=cur.has_geo?` <a href="https://www.google.com/maps?q=${cur.lat},${cur.lng}" target="_blank" rel="noopener">Open the venue in Maps</a>`:'';
+  let hint='Your camera reads your face and your phone confirms you are at the venue. You need to be at the event to sign in.'+maps,off=false;
+  if(!myFace.enrolled){hint='Set up your face first: <a href="/profile.html">Profile, Face check-in</a>. Until then, show your QR code at the entrance.';off=true;}
+  else if(!+cur.has_geo){hint='The organizer has not set a location for this event, so use your QR code at the entrance.';off=true;}
+  else if(!+cur.checkin_open){const t=new Date(dt(cur.start_at)-3600000);hint='Check-in opens at '+t.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})+' (1 hour before the start).'+maps;off=true;}
+  fchint.innerHTML=hint;fcgo.disabled=off;
+}
+const getPosition=()=>new Promise((ok,bad)=>{
+  if(!navigator.geolocation)return bad(new Error('This browser cannot share your location.'));
+  navigator.geolocation.getCurrentPosition(p=>ok(p.coords),e=>bad(new Error(e.code===1?'Location is blocked. Allow location for this site in your browser, then try again.':'We could not find your location. Turn on GPS and try again.')),{enableHighAccuracy:true,timeout:15000,maximumAge:0});});
+fcgo.onclick=async()=>{
+  if(fcBusy||!cur)return;fcBusy=true;fcgo.disabled=true;fcShow('info','');
+  const reg=cur.id;
+  try{
+    fcShow('info','<i class="bi bi-geo-alt me-1"></i>Checking your location...');
+    const pos=await getPosition();
+    fcShow('info','Loading face recognition. The first time takes a few seconds...');
+    await FaceKit.load();fcStream=await FaceKit.camera(fcvid);fcstage.classList.remove('d-none');
+    fcShow('info','<i class="bi bi-person-bounding-box me-1"></i>Look straight at the camera. Hold still...');
+    // Scan by itself: collect 3 steady frames of one clear face (up to 20 seconds), average them, then check in.
+    let buf=[],end=Date.now()+20000,hintMsg='';
+    while(Date.now()<end&&buf.length<3){
+      if(!fcStream)throw new Error('Scan cancelled.');
+      const faces=await FaceKit.detect(fcvid),bad=FaceKit.problem(faces,fcvid);
+      if(bad){buf=[];if(bad!==hintMsg){hintMsg=bad;fcShow('info',esc(bad));}}
+      else{const d=Array.from(faces[0].descriptor);if(buf.length&&faceapi.euclideanDistance(buf[0],d)>0.45)buf=[];buf.push(d);}
+      await new Promise(r=>setTimeout(r,250));
+    }
+    if(buf.length<3)throw new Error('We could not see your face clearly. Check the light and try again.');
+    fcShow('info','Verifying...');
+    const r=await API.req('/my/face-checkin','POST',{registration_id:reg,descriptor:FaceKit.avg(buf),lat:pos.latitude,lng:pos.longitude,accuracy:pos.accuracy});
+    fcStop();fcShow('ok','<i class="bi bi-check-circle-fill me-1"></i><b>You are checked in.</b> You were about '+(r.distance<10?'right at':r.distance+' m from')+' the venue. Enjoy the event!');
+    toast('You are checked in.');load();setTimeout(()=>{if(cur&&cur.id===reg)pm().hide();},2200);
+  }catch(x){
+    fcStop();
+    const away=x.data&&x.data.code==='out_of_range';
+    fcShow(away?'warn':'bad',(away?'<i class="bi bi-exclamation-triangle-fill me-1"></i><b>Not signed in: you are not at the event location.</b><br>':'<b>Not signed in.</b> ')+esc(x.message));
+    fcgo.disabled=false;fcgo.innerHTML='<i class="bi bi-arrow-repeat me-1"></i>Try again';
+  }finally{fcBusy=false;}
+};
+async function load(){all=await API.req('/my/registrations');draw();}if(authed)load();
+document.addEventListener('cu:notify',e=>{if(['checkin','event_update','cancellation'].includes(e.detail.type))load().catch(()=>{});});
+</script>
+</body></html>
